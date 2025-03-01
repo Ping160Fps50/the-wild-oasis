@@ -1,88 +1,116 @@
+import { FormProvider, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createCabinFormSchema } from "../../utils/CabinsSchema";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createCabin } from "../../services/apiCabins";
+
 import styled from "styled-components";
 
-import Input from "../../ui/Input";
 import Form from "../../ui/Form";
 import Button from "../../ui/Button";
 import FileInput from "../../ui/FileInput";
 import Textarea from "../../ui/Textarea";
-
-const FormRow = styled.div`
-  display: grid;
-  align-items: center;
-  grid-template-columns: 24rem 1fr 1.2fr;
-  gap: 2.4rem;
-
-  padding: 1.2rem 0;
-
-  &:first-child {
-    padding-top: 0;
-  }
-
-  &:last-child {
-    padding-bottom: 0;
-  }
-
-  &:not(:last-child) {
-    border-bottom: 1px solid var(--color-grey-100);
-  }
-
-  &:has(button) {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1.2rem;
-  }
-`;
-
-const Label = styled.label`
-  font-weight: 500;
-`;
-
-const Error = styled.span`
-  font-size: 1.4rem;
-  color: var(--color-red-700);
-`;
+import toast from "react-hot-toast";
+import FormRow from "../../ui/FormRow";
+import Input from "../../ui/Input";
 
 function CreateCabinForm() {
+  const methods = useForm({
+    mode: "all",
+    // resolver: zodResolver(createCabinFormSchema),
+  });
+
+  const {
+    handleSubmit,
+    register,
+    formState: { errors },
+    reset,
+  } = methods;
+
+  const queryClient = useQueryClient();
+
+  const { mutate, isLoading: isCreating } = useMutation({
+    mutationFn: createCabin,
+    onSuccess: () => {
+      toast.success("New Cabin Successfully Created");
+      queryClient.invalidateQueries({
+        queryKey: ["cabins"],
+      });
+      reset();
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    },
+  });
+
+  const onSubmit = (data) => {
+    mutate({ ...data, image: data.image[0] });
+  };
+
   return (
-    <Form>
-      <FormRow>
-        <Label htmlFor="name">Cabin name</Label>
-        <Input type="text" id="name" />
-      </FormRow>
+    <FormProvider {...methods}>
+      <Form onSubmit={handleSubmit(onSubmit)}>
+        <FormRow label="Cabin name">
+          <Input
+            type="text"
+            id="name"
+            {...register("name")}
+            disabled={isCreating}
+          />
+        </FormRow>
+        <FormRow label="maxCapacity">
+          <Input
+            type="number"
+            id="maxCapacity"
+            {...register("maxCapacity", { valueAsNumber: true })}
+            disabled={isCreating}
+          />
+        </FormRow>
+        <FormRow label="regularPrice">
+          <Input
+            type="number"
+            id="regularPrice"
+            {...register("regularPrice", { valueAsNumber: true })}
+            disabled={isCreating}
+          />
+        </FormRow>
+        <FormRow label="discount">
+          <Input
+            type="number"
+            id="discount"
+            {...register("discount", { valueAsNumber: true })}
+            disabled={isCreating}
+          />
+        </FormRow>
+        <FormRow label="description">
+          <Textarea
+            type="text"
+            id="description"
+            {...register("description")}
+            disabled={isCreating}
+          />
+        </FormRow>
+        <FormRow label="image">
+          <FileInput
+            type="file"
+            id="image"
+            accept="image/*"
+            {...register("image")}
+            disabled={isCreating}
+          />
+        </FormRow>
 
-      <FormRow>
-        <Label htmlFor="maxCapacity">Maximum capacity</Label>
-        <Input type="number" id="maxCapacity" />
-      </FormRow>
-
-      <FormRow>
-        <Label htmlFor="regularPrice">Regular price</Label>
-        <Input type="number" id="regularPrice" />
-      </FormRow>
-
-      <FormRow>
-        <Label htmlFor="discount">Discount</Label>
-        <Input type="number" id="discount" defaultValue={0} />
-      </FormRow>
-
-      <FormRow>
-        <Label htmlFor="description">Description for website</Label>
-        <Textarea type="number" id="description" defaultValue="" />
-      </FormRow>
-
-      <FormRow>
-        <Label htmlFor="image">Cabin photo</Label>
-        <FileInput id="image" accept="image/*" />
-      </FormRow>
-
-      <FormRow>
-        {/* type is an HTML attribute! */}
-        <Button variation="secondary" type="reset">
-          Cancel
-        </Button>
-        <Button>Edit cabin</Button>
-      </FormRow>
-    </Form>
+        <FormRow>
+          {/* type is an HTML attribute! */}
+          <Button variation="secondary" type="reset">
+            Cancel
+          </Button>
+          <Button disabled={isCreating}>
+            {isCreating ? "Creating..." : "Edit cabin"}
+          </Button>
+        </FormRow>
+      </Form>
+    </FormProvider>
   );
 }
 
