@@ -2,9 +2,9 @@ import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createCabinFormSchema } from "../../utils/CabinsSchema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createCabin } from "../../services/apiCabins";
+import { createEditCabin } from "../../services/apiCabins";
 
-import styled from "styled-components";
+import PropTypes from "prop-types";
 
 import Form from "../../ui/Form";
 import Button from "../../ui/Button";
@@ -14,9 +14,12 @@ import toast from "react-hot-toast";
 import FormRow from "../../ui/FormRow";
 import Input from "../../ui/Input";
 
-function CreateCabinForm() {
+function CreateCabinForm({ cabinToEdit = {} }) {
+  const { id: editId, ...editValues } = cabinToEdit;
+  const isEditSession = Boolean(editId);
   const methods = useForm({
     mode: "all",
+    defaultValues: isEditSession ? editValues : {},
     // resolver: zodResolver(createCabinFormSchema),
   });
 
@@ -29,8 +32,8 @@ function CreateCabinForm() {
 
   const queryClient = useQueryClient();
 
-  const { mutate, isLoading: isCreating } = useMutation({
-    mutationFn: createCabin,
+  const { mutate: createCabin, isLoading: isCreating } = useMutation({
+    mutationFn: createEditCabin,
     onSuccess: () => {
       toast.success("New Cabin Successfully Created");
       queryClient.invalidateQueries({
@@ -43,8 +46,30 @@ function CreateCabinForm() {
     },
   });
 
+  const { mutate: editCabin, isLoading: isEditing } = useMutation({
+    mutationFn: ({ newCabinData, id }) => createEditCabin(newCabinData, id),
+    onSuccess: () => {
+      toast.success("Cabin Successfully Edited");
+      queryClient.invalidateQueries({
+        queryKey: ["cabins"],
+      });
+      reset();
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    },
+  });
+
+  const isWorking = isCreating || isEditing;
+
   const onSubmit = (data) => {
-    mutate({ ...data, image: data.image[0] });
+    const image = typeof data.image === "string" ? data.image : data.image[0];
+
+    if (isEditSession) {
+      editCabin({ newCabinData: { ...data, image }, id: editId });
+    } else {
+      createCabin({ ...data, image });
+    }
   };
 
   return (
@@ -55,7 +80,7 @@ function CreateCabinForm() {
             type="text"
             id="name"
             {...register("name")}
-            disabled={isCreating}
+            disabled={isWorking}
           />
         </FormRow>
         <FormRow label="maxCapacity">
@@ -63,7 +88,7 @@ function CreateCabinForm() {
             type="number"
             id="maxCapacity"
             {...register("maxCapacity", { valueAsNumber: true })}
-            disabled={isCreating}
+            disabled={isWorking}
           />
         </FormRow>
         <FormRow label="regularPrice">
@@ -71,7 +96,7 @@ function CreateCabinForm() {
             type="number"
             id="regularPrice"
             {...register("regularPrice", { valueAsNumber: true })}
-            disabled={isCreating}
+            disabled={isWorking}
           />
         </FormRow>
         <FormRow label="discount">
@@ -79,7 +104,7 @@ function CreateCabinForm() {
             type="number"
             id="discount"
             {...register("discount", { valueAsNumber: true })}
-            disabled={isCreating}
+            disabled={isWorking}
           />
         </FormRow>
         <FormRow label="description">
@@ -87,7 +112,7 @@ function CreateCabinForm() {
             type="text"
             id="description"
             {...register("description")}
-            disabled={isCreating}
+            disabled={isWorking}
           />
         </FormRow>
         <FormRow label="image">
@@ -96,7 +121,7 @@ function CreateCabinForm() {
             id="image"
             accept="image/*"
             {...register("image")}
-            disabled={isCreating}
+            disabled={isWorking}
           />
         </FormRow>
 
@@ -105,13 +130,23 @@ function CreateCabinForm() {
           <Button variation="secondary" type="reset">
             Cancel
           </Button>
-          <Button disabled={isCreating}>
-            {isCreating ? "Creating..." : "Edit cabin"}
+          <Button disabled={isWorking}>
+            {isEditSession
+              ? isWorking
+                ? "Editing..."
+                : "Edit Cabin"
+              : isWorking
+              ? "Creating..."
+              : "Create New Cabin"}
           </Button>
         </FormRow>
       </Form>
     </FormProvider>
   );
 }
+
+CreateCabinForm.propTypes = {
+  cabinToEdit: PropTypes.object,
+};
 
 export default CreateCabinForm;
