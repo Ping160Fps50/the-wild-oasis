@@ -1,8 +1,8 @@
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createCabinFormSchema } from "../../utils/CabinsSchema";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createEditCabin } from "../../services/apiCabins";
+import { useCreateCabin } from "./useCreateCabin";
+import { useEditCabin } from "./useEditCabin";
 
 import PropTypes from "prop-types";
 
@@ -14,7 +14,7 @@ import toast from "react-hot-toast";
 import FormRow from "../../ui/FormRow";
 import Input from "../../ui/Input";
 
-function CreateCabinForm({ cabinToEdit = {} }) {
+function CreateCabinForm({ cabinToEdit = {}, onCloseModal }) {
   const { id: editId, ...editValues } = cabinToEdit;
   const isEditSession = Boolean(editId);
   const methods = useForm({
@@ -30,35 +30,8 @@ function CreateCabinForm({ cabinToEdit = {} }) {
     reset,
   } = methods;
 
-  const queryClient = useQueryClient();
-
-  const { mutate: createCabin, isLoading: isCreating } = useMutation({
-    mutationFn: createEditCabin,
-    onSuccess: () => {
-      toast.success("New Cabin Successfully Created");
-      queryClient.invalidateQueries({
-        queryKey: ["cabins"],
-      });
-      reset();
-    },
-    onError: (err) => {
-      toast.error(err.message);
-    },
-  });
-
-  const { mutate: editCabin, isLoading: isEditing } = useMutation({
-    mutationFn: ({ newCabinData, id }) => createEditCabin(newCabinData, id),
-    onSuccess: () => {
-      toast.success("Cabin Successfully Edited");
-      queryClient.invalidateQueries({
-        queryKey: ["cabins"],
-      });
-      reset();
-    },
-    onError: (err) => {
-      toast.error(err.message);
-    },
-  });
+  const { createCabin, isCreating } = useCreateCabin(reset);
+  const { editCabin, isEditing } = useEditCabin(reset);
 
   const isWorking = isCreating || isEditing;
 
@@ -66,15 +39,34 @@ function CreateCabinForm({ cabinToEdit = {} }) {
     const image = typeof data.image === "string" ? data.image : data.image[0];
 
     if (isEditSession) {
-      editCabin({ newCabinData: { ...data, image }, id: editId });
+      editCabin(
+        { newCabinData: { ...data, image }, id: editId },
+        {
+          onSuccess: () => {
+            reset();
+            onCloseModal?.();
+          },
+        }
+      );
     } else {
-      createCabin({ ...data, image });
+      createCabin(
+        { ...data, image },
+        {
+          onSuccess: () => {
+            reset();
+            onCloseModal?.();
+          },
+        }
+      );
     }
   };
 
   return (
     <FormProvider {...methods}>
-      <Form onSubmit={handleSubmit(onSubmit)}>
+      <Form
+        onSubmit={handleSubmit(onSubmit)}
+        type={onCloseModal ? "modal" : "regular"}
+      >
         <FormRow label="Cabin name">
           <Input
             type="text"
@@ -127,7 +119,11 @@ function CreateCabinForm({ cabinToEdit = {} }) {
 
         <FormRow>
           {/* type is an HTML attribute! */}
-          <Button variation="secondary" type="reset">
+          <Button
+            variation="secondary"
+            type="reset"
+            onClick={() => onCloseModal?.()}
+          >
             Cancel
           </Button>
           <Button disabled={isWorking}>
@@ -147,6 +143,7 @@ function CreateCabinForm({ cabinToEdit = {} }) {
 
 CreateCabinForm.propTypes = {
   cabinToEdit: PropTypes.object,
+  onCloseModal: PropTypes.func,
 };
 
 export default CreateCabinForm;

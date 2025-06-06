@@ -1,5 +1,6 @@
+// import { useFormContext } from "react-hook-form";
+
 import styled from "styled-components";
-import { useFormContext } from "react-hook-form";
 import PropTypes from "prop-types";
 
 const Formrow = styled.div`
@@ -39,16 +40,17 @@ const Error = styled.span`
 `;
 
 function FormRow({ label, children }) {
-  const {
-    formState: { errors },
-  } = useFormContext();
+  // const {
+  //   formState: { errors },
+  // } = useFormContext();
+
   return (
     <Formrow>
       {label && <Label htmlFor={children?.props?.id}>{label}</Label>}
       {children}
-      {errors[children?.props?.id] && (
+      {/* {errors[children?.props?.id] && (
         <Error>{errors[children?.props?.id].message}</Error>
-      )}
+      )} */}
     </Formrow>
   );
 }
